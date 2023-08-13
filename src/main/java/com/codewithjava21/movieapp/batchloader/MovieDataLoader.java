@@ -111,7 +111,7 @@ public class MovieDataLoader {
 					// process genre IDs
 					int[] genre = getGenreIds(movie.getGenres().keySet());
 					
-					movie.setVector(generateVector(collectionId, genre[0], genre[1], genre[2],
+					movie.setStrVector(generateVector(collectionId, genre[0], genre[1], genre[2],
 							popularity, voteAverage, voteCount));
 					
 					System.out.println(movie.getTitle());
@@ -145,7 +145,6 @@ public class MovieDataLoader {
 				+ movie.getMovieId() + ","
 				+ movie.getVector() + ")";
 		session.execute(vectorCQL);
-		
 	}
 	
 	private static int getCollectionId(String collections) {

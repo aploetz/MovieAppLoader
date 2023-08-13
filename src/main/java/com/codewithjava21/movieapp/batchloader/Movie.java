@@ -3,6 +3,8 @@ package com.codewithjava21.movieapp.batchloader;
 import java.time.LocalDate;
 import java.util.Map;
 
+import com.datastax.oss.driver.api.core.data.CqlVector;
+
 public class Movie {
     private int movieId;
     private String imdbId;
@@ -17,7 +19,8 @@ public class Movie {
     private Long budget;
     private Long revenue;
     private int year;
-    private String vector;
+    private CqlVector vector;
+    private String strVector;
     
 	public int getMovieId() {
 		return movieId;
@@ -123,11 +126,19 @@ public class Movie {
 		this.revenue = revenue;
 	}
 	
-	public String getVector() {
+	public CqlVector getVector() {
 		return vector;
 	}
 	
-	public void setVector(String vector) {
+	public void setVector(CqlVector vector) {
 		this.vector = vector;
+	}
+	
+	public String getStrVector() {
+		return strVector;
+	}
+	
+	public void setStrVector(String strVector) {
+		this.strVector = strVector;
 	}
 }
