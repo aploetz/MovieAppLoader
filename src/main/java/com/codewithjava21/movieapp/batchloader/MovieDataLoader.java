@@ -5,6 +5,7 @@ import com.codewithjava21.movieapp.cassandraconnect.AstraConnection;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -13,14 +14,19 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
 
 public class MovieDataLoader {
 
 	private static CqlSession session;
 	private static PreparedStatement INSERTStatement;
-	private final static String strCQLINSERT = "INSERT INTO movies (id,imdb_id,original_language,genres,"
-			+ "website,title,description,release_date,year,revenue,runtime) "
-			+ "VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+	private static PreparedStatement INSERTByTitleStatement;
+	private final static String strCQLINSERT = "INSERT INTO movies (movie_id,imdb_id,original_language,genres,"
+			+ "image,website,title,description,release_date,year,budget,revenue,runtime) "
+			+ "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+	private final static String strCQLINSERTByTitle = "INSERT INTO movies_by_title (title, movie_id)"
+			+ "VALUES (?,?)";
 	
 	public static void main(String[] args) {
 		// get connection
@@ -28,6 +34,7 @@ public class MovieDataLoader {
 		session = conn.getCqlSession();
 		
 		INSERTStatement = session.prepare(strCQLINSERT);
+		INSERTByTitleStatement = session.prepare(strCQLINSERTByTitle);
 		
 		// read from movies_metadata.csv
 		try {
@@ -40,6 +47,7 @@ public class MovieDataLoader {
 			while (movieLine !=  null) {
 
 				if (headerRead) {
+					// This regular expression pattern executes a "read-ahead" 
 					String[] movieColumns = movieLine.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
 					
 					Movie movie = new Movie();
@@ -89,9 +97,6 @@ public class MovieDataLoader {
 						movie.setRuntime(0F);
 					}
 					
-					// tagline 19
-					movie.setTagline(movieColumns[19]);
-					
 					// title 20
 					movie.setTitle(movieColumns[20]);
 					
@@ -134,17 +139,21 @@ public class MovieDataLoader {
 	private static void writeToCassandra(Movie movie) {
 
 		// write movie data
-	    BoundStatement movieInsert = INSERTStatement.bind(movie.getMovieId(),movie.getImdbId(),
-	    		movie.getOriginalLanguage(),movie.getGenres(),movie.getWebsite(),movie.getTitle(),
-	    		movie.getDescription(),movie.getReleaseDate(),movie.getYear(),movie.getRevenue(),
-	    		movie.getRuntime());
+	    BoundStatement movieInsert = INSERTStatement.bind(movie.getMovieId(), movie.getImdbId(),
+	    		movie.getOriginalLanguage(), movie.getGenres(), movie.getWebsite(), movie.getTitle(),
+	    		movie.getDescription(), movie.getReleaseDate(), movie.getYear(), movie.getBudget(),
+	    		movie.getRevenue(), movie.getRuntime());
 		session.execute(movieInsert);
 		
-		// write movie_vector
+		// write movie_vector, as we cannot use a prepared statement with the vector type (at this time).
 		String vectorCQL = "INSERT INTO movies (id,movie_vector) VALUES ("
 				+ movie.getMovieId() + ","
-				+ movie.getVector() + ")";
+				+ movie.getStrVector() + ")";
 		session.execute(vectorCQL);
+		
+		// write to movies_by_title
+		BoundStatement movieByTitleInsert = INSERTByTitleStatement.bind(movie.getTitle(), movie.getMovieId());
+		session.execute(movieByTitleInsert);
 	}
 	
 	private static int getCollectionId(String collections) {
