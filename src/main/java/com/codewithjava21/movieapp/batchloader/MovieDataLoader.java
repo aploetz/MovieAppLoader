@@ -5,17 +5,17 @@ import com.codewithjava21.movieapp.cassandraconnect.AstraConnection;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
+import com.datastax.oss.driver.api.core.data.CqlVector;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executors;
 
 public class MovieDataLoader {
 
@@ -23,7 +23,7 @@ public class MovieDataLoader {
 	private static PreparedStatement INSERTStatement;
 	private static PreparedStatement INSERTByTitleStatement;
 	private final static String strCQLINSERT = "INSERT INTO movies (movie_id,imdb_id,original_language,genres,"
-			+ "image,website,title,description,release_date,year,budget,revenue,runtime) "
+			+ "website,title,description,release_date,year,budget,revenue,runtime,movie_vector) "
 			+ "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 	private final static String strCQLINSERTByTitle = "INSERT INTO movies_by_title (title, movie_id)"
 			+ "VALUES (?,?)";
@@ -38,7 +38,7 @@ public class MovieDataLoader {
 		
 		// read from movies_metadata.csv
 		try {
-			BufferedReader reader = new BufferedReader(new FileReader("movies_metadata.csv"));
+			BufferedReader reader = new BufferedReader(new FileReader("data/movies_metadata.csv"));
 
 			// read the first line
 			String movieLine = reader.readLine();
@@ -116,8 +116,11 @@ public class MovieDataLoader {
 					// process genre IDs
 					int[] genre = getGenreIds(movie.getGenres().keySet());
 					
-					movie.setStrVector(generateVector(collectionId, genre[0], genre[1], genre[2],
+					CqlVector<Float> vector = CqlVector.newInstance(
+							generateVector(collectionId, genre[0], genre[1], genre[2],
 							popularity, voteAverage, voteCount));
+					
+					movie.setVector(vector);
 					
 					System.out.println(movie.getTitle());
 					//System.out.println(" - " + movie.getVector());
@@ -142,14 +145,8 @@ public class MovieDataLoader {
 	    BoundStatement movieInsert = INSERTStatement.bind(movie.getMovieId(), movie.getImdbId(),
 	    		movie.getOriginalLanguage(), movie.getGenres(), movie.getWebsite(), movie.getTitle(),
 	    		movie.getDescription(), movie.getReleaseDate(), movie.getYear(), movie.getBudget(),
-	    		movie.getRevenue(), movie.getRuntime());
+	    		movie.getRevenue(), movie.getRuntime(),movie.getVector());
 		session.execute(movieInsert);
-		
-		// write movie_vector, as we cannot use a prepared statement with the vector type (at this time).
-		String vectorCQL = "INSERT INTO movies (id,movie_vector) VALUES ("
-				+ movie.getMovieId() + ","
-				+ movie.getStrVector() + ")";
-		session.execute(vectorCQL);
 		
 		// write to movies_by_title
 		BoundStatement movieByTitleInsert = INSERTByTitleStatement.bind(movie.getTitle(), movie.getMovieId());
@@ -232,21 +229,32 @@ public class MovieDataLoader {
 		return genre;
 	}
 	
-	private static String generateVector(int collectionId, int genre1, int genre2, int genre3,
-			float popularity, float voteAverage, int voteCount) {
+	private static List<Float> generateVector(Integer collectionId,
+			Integer genre1, Integer genre2, Integer genre3,
+			float popularity, float voteAverage, Integer voteCount) {
 		// movie_vector <float,7>
 		// collectionId,genre1,genre2,genre3,popularity,voteAverage,voteCount
 
-		StringBuilder strVector = new StringBuilder("[");
-		strVector.append((float)collectionId).append(", ");
-		strVector.append((float)genre1).append(", ");
-		strVector.append((float)genre2).append(", ");
-		strVector.append((float)genre3).append(", ");
-		strVector.append(popularity).append(", ");
-		strVector.append(voteAverage).append(", ");
-		strVector.append((float)voteCount);
-		strVector.append("]");
+		List<Float> returnVal = new ArrayList<>();
 		
-		return strVector.toString();
+		returnVal.add(Float.parseFloat(collectionId.toString()));
+		returnVal.add(Float.parseFloat(genre1.toString()));
+		returnVal.add(Float.parseFloat(genre2.toString()));
+		returnVal.add(Float.parseFloat(genre3.toString()));
+		returnVal.add(popularity);
+		returnVal.add(voteAverage);
+		returnVal.add(Float.parseFloat(voteCount.toString()));
+
+//		StringBuilder strVector = new StringBuilder("[");
+//		strVector.append((float)collectionId).append(", ");
+//		strVector.append((float)genre1).append(", ");
+//		strVector.append((float)genre2).append(", ");
+//		strVector.append((float)genre3).append(", ");
+//		strVector.append(popularity).append(", ");
+//		strVector.append(voteAverage).append(", ");
+//		strVector.append((float)voteCount);
+//		strVector.append("]");
+		
+		return returnVal;
 	}
 }
