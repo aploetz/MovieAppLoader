@@ -244,16 +244,6 @@ public class MovieDataLoader {
 		returnVal.add(popularity);
 		returnVal.add(voteAverage);
 		returnVal.add(Float.parseFloat(voteCount.toString()));
-
-//		StringBuilder strVector = new StringBuilder("[");
-//		strVector.append((float)collectionId).append(", ");
-//		strVector.append((float)genre1).append(", ");
-//		strVector.append((float)genre2).append(", ");
-//		strVector.append((float)genre3).append(", ");
-//		strVector.append(popularity).append(", ");
-//		strVector.append(voteAverage).append(", ");
-//		strVector.append((float)voteCount);
-//		strVector.append("]");
 		
 		return returnVal;
 	}

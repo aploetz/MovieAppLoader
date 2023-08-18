@@ -6,7 +6,7 @@ import java.util.Map;
 import com.datastax.oss.driver.api.core.data.CqlVector;
 
 public class Movie {
-    private int movieId;
+    private Integer movieId;
     private String imdbId;
     private String title;
     private String description;
@@ -17,14 +17,14 @@ public class Movie {
     private LocalDate releaseDate;
     private Long budget;
     private Long revenue;
-    private int year;
+    private Integer year;
     private CqlVector<Float> vector;
     
-	public int getMovieId() {
+	public Integer getMovieId() {
 		return movieId;
 	}
 	
-	public void setMovieId(int movieId) {
+	public void setMovieId(Integer movieId) {
 		this.movieId = movieId;
 	}
 	
@@ -84,11 +84,11 @@ public class Movie {
 		this.website = website;
 	}
 	
-	public int getYear() {
+	public Integer getYear() {
 		return year;
 	}
 	
-	public void setYear(int year) {
+	public void setYear(Integer year) {
 		this.year = year;
 	}
 	
