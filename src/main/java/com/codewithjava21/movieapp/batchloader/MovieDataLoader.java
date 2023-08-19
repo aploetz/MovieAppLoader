@@ -25,7 +25,7 @@ public class MovieDataLoader {
 	private final static String strCQLINSERT = "INSERT INTO movies (movie_id,imdb_id,original_language,genres,"
 			+ "website,title,description,release_date,year,budget,revenue,runtime,movie_vector) "
 			+ "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
-	private final static String strCQLINSERTByTitle = "INSERT INTO movies_by_title (title, movie_id)"
+	private final static String strCQLINSERTByTitle = "INSERT INTO movies_by_title (title, movie_id) "
 			+ "VALUES (?,?)";
 	
 	public static void main(String[] args) {
@@ -134,9 +134,13 @@ public class MovieDataLoader {
 
 			reader.close();
 		} catch (IOException readerEx) {
-			System.out.println("Error occurred while reading:");
+			System.out.println("Error occurred while loading:");
 			readerEx.printStackTrace();
 		}
+		
+		
+		session.close();
+		System.exit(0);
 	}
 	
 	private static void writeToCassandra(Movie movie) {
@@ -149,7 +153,8 @@ public class MovieDataLoader {
 		session.execute(movieInsert);
 		
 		// write to movies_by_title
-		BoundStatement movieByTitleInsert = INSERTByTitleStatement.bind(movie.getTitle(), movie.getMovieId());
+		BoundStatement movieByTitleInsert = INSERTByTitleStatement.bind(
+				movie.getTitle().toLowerCase(), movie.getMovieId());
 		session.execute(movieByTitleInsert);
 	}
 	
