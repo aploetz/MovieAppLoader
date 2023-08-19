@@ -48,8 +48,8 @@ public class CassandraConnection {
 	}
 	
 	protected void finalize() {
-		cqlSession.close();
 		System.out.println("[shutdown_driver] Closing connection");
 		System.out.println();
+		cqlSession.close();
 	}
 }

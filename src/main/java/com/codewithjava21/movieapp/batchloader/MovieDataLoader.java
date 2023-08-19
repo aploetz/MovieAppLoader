@@ -22,11 +22,15 @@ public class MovieDataLoader {
 	private static CqlSession session;
 	private static PreparedStatement INSERTStatement;
 	private static PreparedStatement INSERTByTitleStatement;
+	
 	private final static String strCQLINSERT = "INSERT INTO movies (movie_id,imdb_id,original_language,genres,"
 			+ "website,title,description,release_date,year,budget,revenue,runtime,movie_vector) "
 			+ "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 	private final static String strCQLINSERTByTitle = "INSERT INTO movies_by_title (title, movie_id) "
 			+ "VALUES (?,?)";
+	
+	private static Map<String,Integer> genreIDMainMap = new HashMap<>();
+	private static Map<Integer,Integer> collectionIDMainMap = new HashMap<>();
 	
 	public static void main(String[] args) {
 		// get connection
@@ -43,6 +47,7 @@ public class MovieDataLoader {
 			// read the first line
 			String movieLine = reader.readLine();
 			boolean headerRead = false;
+			int movieCount = 0;
 			
 			while (movieLine !=  null) {
 
@@ -114,16 +119,16 @@ public class MovieDataLoader {
 					movie.setGenres(genreMap);
 					
 					// process genre IDs
-					int[] genre = getGenreIds(movie.getGenres().keySet());
+					Integer[] genre = getGenreIds(movie.getGenres().keySet());
 					
 					CqlVector<Float> vector = CqlVector.newInstance(
-							generateVector(collectionId, genre[0], genre[1], genre[2],
+							generateVector(collectionId, genre,
 							popularity, voteAverage, voteCount));
 					
 					movie.setVector(vector);
 					
 					System.out.println(movie.getTitle());
-					//System.out.println(" - " + movie.getVector());
+					movieCount++;
 					writeToCassandra(movie);
 				} else {
 					headerRead = true;
@@ -133,11 +138,11 @@ public class MovieDataLoader {
 			}
 
 			reader.close();
+			System.out.printf("%d movies written\n", movieCount);		
 		} catch (IOException readerEx) {
 			System.out.println("Error occurred while loading:");
 			readerEx.printStackTrace();
 		}
-		
 		
 		session.close();
 		System.exit(0);
@@ -162,16 +167,31 @@ public class MovieDataLoader {
 		//"{'id': 10194, 'name': 'Toy Story Collection', 'poster_path': '/7G9915LfUQ2lVfwMEEhDsn3kT4B.jpg', 'backdrop_path': '/9FBwqcd9IRruEDUrTdcaafOMKUq.jpg'}",
 
 		int collectionId = 0;
-		
+		boolean idFound = false;
 		String[] collArray = collections.split(",");
 		
 		for (String collection : collArray) {
 			String[] kv = collection.split(":");
 			
 			if (kv[0].contains("'id'")) {
-				collectionId = Integer.parseInt(kv[1].trim());
+				idFound = true;
+				int originalCollectionId = Integer.parseInt(kv[1].trim());
+								
+				if (collectionIDMainMap.containsKey(originalCollectionId)) {
+					collectionId = collectionIDMainMap.get(originalCollectionId);
+				} else {
+					collectionId = collectionIDMainMap.size() + 1;
+					collectionIDMainMap.put(originalCollectionId, collectionId);
+				}
+				
 				break;
 			}
+		}
+		
+		if (!idFound) {
+			// a collection ID was not found, 
+			// so let's force a collectionId of 999 for better vector results
+			collectionId = 999;
 		}
 		
 		return collectionId;
@@ -182,8 +202,6 @@ public class MovieDataLoader {
 		Map<Integer,String> returnVal = new HashMap<>();
 		String[] genreArray = genres.split(",");
 		
-		boolean idWritten = false;
-		boolean nameWritten = false;
 		Integer id = 0;
 		String name = "";
 		
@@ -191,35 +209,30 @@ public class MovieDataLoader {
 			
 			String[] genreKV = genre.split(":");
 
-			if (genreKV[0].contains("'id'")) {
-				id = Integer.parseInt(genreKV[1].trim());
-				idWritten = true;
-			}
-			
 			if (genreKV[0].contains("'name'")) {
 				name = genreKV[1]
 						.replaceAll("'","")
 						.replaceAll("\"","")
 						.replaceAll("}","")
 						.replaceAll("]","");
-				nameWritten = true;
-			}
-			
-			if (idWritten && nameWritten) {
-
-				returnVal.put(id, name.trim());
 				
-				idWritten = false;
-				nameWritten = false;
+				// is name is genreIDMainMap?
+				if (genreIDMainMap.containsKey(name)) {
+					id = genreIDMainMap.get(name);
+ 				} else {
+ 					id = genreIDMainMap.size() + 1;
+ 					genreIDMainMap.put(name, id);
+ 				}
+				returnVal.put(id, name.trim());
 			}
 		}
 		
 		return returnVal;
 	}
 	
-	private static int[] getGenreIds(Set<Integer> genreIds) {
+	private static Integer[] getGenreIds(Set<Integer> genreIds) {
 		
-		int[] genre = {0, 0, 0};
+		Integer[] genre = {0, 0, 0};
 		int counter = 0;
 
 		for (Integer id : genreIds) {
@@ -235,17 +248,16 @@ public class MovieDataLoader {
 	}
 	
 	private static List<Float> generateVector(Integer collectionId,
-			Integer genre1, Integer genre2, Integer genre3,
-			float popularity, float voteAverage, Integer voteCount) {
+			Integer[] genre, float popularity, float voteAverage, Integer voteCount) {
 		// movie_vector <float,7>
 		// collectionId,genre1,genre2,genre3,popularity,voteAverage,voteCount
 
 		List<Float> returnVal = new ArrayList<>();
 		
 		returnVal.add(Float.parseFloat(collectionId.toString()));
-		returnVal.add(Float.parseFloat(genre1.toString()));
-		returnVal.add(Float.parseFloat(genre2.toString()));
-		returnVal.add(Float.parseFloat(genre3.toString()));
+		returnVal.add(Float.parseFloat(genre[0].toString()));
+		returnVal.add(Float.parseFloat(genre[1].toString()));
+		returnVal.add(Float.parseFloat(genre[2].toString()));
 		returnVal.add(popularity);
 		returnVal.add(voteAverage);
 		returnVal.add(Float.parseFloat(voteCount.toString()));
