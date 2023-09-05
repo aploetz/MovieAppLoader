@@ -3,3 +3,4 @@
 .project
 .settings
 data/movies_metadata_5000.csv
+.java-version
